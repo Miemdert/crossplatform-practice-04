@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport обязателен для адаптивности и критериев установки PWA -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PWA «Заметка»</title>
+  <!-- Связываем страницу с манифестом: условие устанавливаемости -->
+  <link rel="manifest" href="manifest.json">
+  <!-- Цвет темы: окрашивает элементы интерфейса браузера -->
+  <meta name="theme-color" content="#0d47a1">
+</head>
+<body>
+  <main>
+    <h1>Моя заметка</h1>
+    <textarea id="note" rows="8" cols="40"
+      placeholder="Введите текст — он сохранится локально"></textarea>
+      <div>
+        <button id="wasm-button">Вычислить квадрат (Wasm)</button>
+        <p id="wasm-result"></p>
+      </div>
+  </main>
+  <script>
+    // 1. Локальное сохранение текста (простейшее внутреннее хранилище)
+    let wasmExports = null;fetch('./function.wasm')
+      .then(r => r.arrayBuffer())
+        .then(bytes => WebAssembly.instantiate(bytes))
+          .then(obj => { wasmExports = obj.instance.exports; })
+            .catch(err => console.error('Ошибка загрузки Wasm:', err));
+    const area = document.getElementById('note');
+area.value = localStorage.getItem('note') || '';
+    area.addEventListener('input', () =>
+      localStorage.setItem('note', area.value));
+
+    const wasmButton = document.getElementById('wasm-button');
+    const wasmResult = document.getElementById('wasm-result');
+    wasmButton.addEventListener('click', () => {
+      if (wasmExports) {
+        document.getElementById('wasm-result').textContent = wasmExports.square(7);
+       // const inputValue = parseInt(area.value, 10);
+        //if (!isNaN(inputValue)) {
+        //  const result = wasmExports.square(inputValue);
+       //   wasmResult.textContent = `Квадрат числа ${inputValue} равен ${result}`;
+       // } else {
+       //   wasmResult.textContent = 'Пожалуйста, введите число в текстовое поле.';
+       // }
+      } else {
+        wasmResult.textContent = 'Wasm модуль не загружен.';
+      }
+    });
+
+    // 2. Регистрация Service Worker — только в безопасном контексте
+    //    (HTTPS или localhost)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log('Service Worker зарегистрирован'))
+        .catch(err => console.error('Ошибка регистрации SW:', err));
+    }
+  </script>
+</body>
+</html>
+   
