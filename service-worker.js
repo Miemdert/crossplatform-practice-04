@@ -1,12 +1,14 @@
 // Service Worker for PWA Note
 // Versioned cache name; increment on updates to invalidate old caches
-const CACHE_NAME = 'pwa-note-v3';
+const CACHE_NAME = 'pwa-note-v6';
 // List of assets to pre-cache. Adjust paths as needed.
 const ASSETS = [
   './index.html',
   './manifest.json',
   './icon.png',
-  './test.wasm',
+  './function.wasm',
+  './news.html',
+  './style.css',
 ];
 
 // Install event: cache essential assets
@@ -45,6 +47,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests (ignore others like POST)
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  // Network‑first for news.html
+  if (url.pathname.endsWith('news.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          // Optionally cache the fresh response
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Default cache‑first for other assets
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
@@ -52,12 +72,7 @@ self.addEventListener('fetch', (event) => {
           console.log('[SW] Serving from cache:', event.request.url);
           return cachedResponse;
         }
-        // Fallback to network and optionally cache the result
-        return fetch(event.request)
-          .then((networkResponse) => {
-            // Optionally cache dynamic content here
-            return networkResponse;
-          });
+        return fetch(event.request).catch(() => caches.match(event.request));
       })
   );
 });
